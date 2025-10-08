@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Blood Sugar Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f9f9f9 0%, #e8f5e8 100%);
+            min-height: 100vh;
+            color: #2c5530;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0c7e47 0%, #0d8a4d 100%);
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(12, 126, 71, 0.3);
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 2.2rem;
+            font-weight: 300;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1rem;
+            font-weight: 400;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(12, 126, 71, 0.08);
+            margin-bottom: 2rem;
+            overflow: hidden;
+            border: 1px solid rgba(159, 199, 128, 0.2);
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #9fc780 0%, #a8d085 100%);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .card-header h2 {
+            color: #0c7e47;
+            font-size: 1.5rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .card-body {
+            padding: 2rem;
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(12, 126, 71, 0.08);
+            margin-bottom: 2rem;
+            overflow: hidden;
+            border: 1px solid rgba(159, 199, 128, 0.2);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 1.5rem 2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #9fc780 0%, #a8d085 100%);
+            color: #0c7e47;
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: rgba(159, 199, 128, 0.1);
+            color: #0c7e47;
+        }
+
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 3px;
+            background: #0c7e47;
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+
+        .tab-btn.active::after {
+            width: 80%;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+
+        .status-loading {
+            background: rgba(159, 199, 128, 0.2);
+            color: #0c7e47;
+        }
+
+        .status-error {
+            background: rgba(244, 67, 54, 0.1);
+            color: #d32f2f;
+        }
+
+        .status-taken {
+            background: rgba(76, 175, 80, 0.1);
+            color: #388e3c;
+        }
+
+        .status-missed {
+            background: rgba(244, 67, 54, 0.1);
+            color: #d32f2f;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #0c7e47;
+            font-size: 1.1rem;
+        }
+
+        .loading i {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error {
+            text-align: center;
+            padding: 2rem;
+            color: #d32f2f;
+            background: rgba(244, 67, 54, 0.05);
+            border-radius: 12px;
+            margin: 1rem 0;
+            border: 1px solid rgba(244, 67, 54, 0.2);
+        }
+
+        .error i {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 1rem 0;
+        }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid rgba(159, 199, 128, 0.3);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th {
+            background: linear-gradient(135deg, #0c7e47 0%, #0d8a4d 100%);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(159, 199, 128, 0.2);
+            transition: background-color 0.3s ease;
+        }
+
+        tr:hover td {
+            background: rgba(159, 199, 128, 0.1);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            background: linear-gradient(135deg, #0c7e47 0%, #0d8a4d 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(12, 126, 71, 0.3);
+        }
+
+        .pagination button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(12, 126, 71, 0.4);
+        }
+
+        .pagination button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .pagination .current {
+            background: rgba(159, 199, 128, 0.2);
+            color: #0c7e47;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            border: 2px solid rgba(159, 199, 128, 0.4);
+        }
+
+        .pagination-info {
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(159, 199, 128, 0.1);
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .card-body {
+                padding: 1.5rem;
+            }
+
+            .chart-container {
+                height: 300px;
+            }
+
+            .tab-btn {
+                padding: 1rem;
+                font-size: 0.9rem;
+            }
+
+            th,
+            td {
+                padding: 0.75rem 0.5rem;
+                font-size: 0.875rem;
+            }
+
+            .pagination {
+                gap: 0.5rem;
+            }
+
+            .pagination button,
+            .pagination .current {
+                padding: 0.6rem 1rem;
+                font-size: 0.875rem;
+            }
+        }
+
+        /* Sweet Alert Custom Styling */
+        .swal2-popup {
+            border-radius: 16px !important;
+            border: 2px solid rgba(159, 199, 128, 0.3) !important;
+        }
+
+        .swal2-title {
+            color: #0c7e47 !important;
+        }
+
+        .swal2-confirm {
+            background: linear-gradient(135deg, #0c7e47 0%, #0d8a4d 100%) !important;
+            border-radius: 25px !important;
+            padding: 0.75rem 2rem !important;
+            font-weight: 600 !important;
+        }
+
+        .swal2-cancel {
+            background: #ccc !important;
+            border-radius: 25px !important;
+            padding: 0.75rem 2rem !important;
+        }
+
+        /* Icons */
+        .icon-pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="container">
+            <h1><i class="fas fa-heartbeat"></i> ระบบติดตามค่าน้ำตาลในเลือด</h1>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Chart Card (always visible) -->
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-chart-line"></i> กราฟค่าน้ำตาลในเลือด</h2>
+            </div>
+            <div class="card-body">
+                <div id="loading" class="loading" style="display: none;">
+                    <i class="fas fa-spinner icon-pulse"></i>
+                    <div>กำลังโหลดข้อมูล...</div>
+                </div>
+
+                <div id="error" class="error" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>ไม่สามารถดึงข้อมูลได้ กรุณาลองใหม่อีกครั้ง</div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="bloodSugarChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('sugar')">
+                <i class="fas fa-tint"></i> บันทึกค่าน้ำตาล
+            </button>
+            <button class="tab-btn" onclick="switchTab('medication')">
+                <i class="fas fa-pills"></i> บันทึกการกินยา
+            </button>
+            <button class="tab-btn" onclick="switchTab('appointment')">
+                <i class="fas fa-calendar-check"></i> การนัดหมาย
+            </button>
+        </div>
+
+        <!-- Sugar Records Tab -->
+        <div id="sugarTab" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-table"></i> ตารางข้อมูลน้ำตาล</h2>
+                </div>
+                <div class="card-body">
+                    <div id="recordsLoading" style="display:none;" class="loading">
+                        <i class="fas fa-spinner icon-pulse"></i>
+                        <div>กำลังโหลดข้อมูล...</div>
+                    </div>
+
+                    <div id="recordsError" style="display:none;" class="error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>โหลดข้อมูลไม่สำเร็จ</div>
+                    </div>
+
+                    <div style="text-align: center;">
+                        <div id="paginationInfo" class="pagination-info" style="display:none;"></div>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="recordsTable" style="display:none;">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-calendar-alt"></i> วันที่</th>
+                                    <th><i class="fas fa-utensils"></i> มื้อ</th>
+                                    <th><i class="fas fa-tag"></i> ประเภท</th>
+                                    <th><i class="fas fa-tint"></i> ค่าน้ำตาล (mg/dL)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recordsTableBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div id="paginationControls" class="pagination" style="display:none;">
+                        <button id="prevBtn" onclick="changePage('prev')">
+                            <i class="fas fa-chevron-left"></i> ก่อนหน้า
+                        </button>
+                        <span class="current" id="pageInfo">หน้า 1 จาก 1</span>
+                        <button id="nextBtn" onclick="changePage('next')">
+                            ถัดไป <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Medication Records Tab -->
+        <div id="medicationTab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-pills"></i> ตารางการกินยา</h2>
+                </div>
+                <div class="card-body">
+                    <div id="medicationLoading" style="display:none;" class="loading">
+                        <i class="fas fa-spinner icon-pulse"></i>
+                        <div>กำลังโหลดข้อมูล...</div>
+                    </div>
+
+                    <div id="medicationError" style="display:none;" class="error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>โหลดข้อมูลไม่สำเร็จ</div>
+                    </div>
+
+                    <div style="text-align: center;">
+                        <div id="medicationPaginationInfo" class="pagination-info" style="display:none;"></div>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="medicationTable" style="display:none;">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-calendar-alt"></i> วันที่</th>
+                                    <th><i class="fas fa-clock"></i> ช่วงเวลา</th>
+                                    <th><i class="fas fa-utensils"></i> ก่อน/หลังอาหาร</th>
+                                    <th><i class="fas fa-check-circle"></i> สถานะ</th>
+                                    <th><i class="fas fa-history"></i> เวลาบันทึก</th>
+                                </tr>
+                            </thead>
+                            <tbody id="medicationTableBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div id="medicationPaginationControls" class="pagination" style="display:none;">
+                        <button id="medPrevBtn" onclick="changeMedicationPage('prev')">
+                            <i class="fas fa-chevron-left"></i> ก่อนหน้า
+                        </button>
+                        <span class="current" id="medicationPageInfo">หน้า 1 จาก 1</span>
+                        <button id="medNextBtn" onclick="changeMedicationPage('next')">
+                            ถัดไป <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Appointment Records Tab -->
+    <div id="appointmentTab" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-calendar-check"></i> ตารางการนัดหมาย</h2>
+            </div>
+            <div class="card-body">
+                <div id="appointmentLoading" style="display:none;" class="loading">
+                    <i class="fas fa-spinner icon-pulse"></i>
+                    <div>กำลังโหลดข้อมูล...</div>
+                </div>
+
+                <div id="appointmentError" style="display:none;" class="error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>โหลดข้อมูลไม่สำเร็จ</div>
+                </div>
+
+                <div style="text-align: center;">
+                    <div id="appointmentPaginationInfo" class="pagination-info" style="display:none;"></div>
+                </div>
+
+                <div class="table-container">
+                    <table id="appointmentTable" style="display:none;">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-calendar-alt"></i> วันที่</th>
+                                <th><i class="fas fa-clock"></i> เวลา</th>
+                                <th><i class="fas fa-sticky-note"></i> หมายเหตุ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="appointmentTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div id="appointmentPaginationControls" class="pagination" style="display:none;">
+                    <button id="appPrevBtn" onclick="changeAppointmentPage('prev')">
+                        <i class="fas fa-chevron-left"></i> ก่อนหน้า
+                    </button>
+                    <span class="current" id="appointmentPageInfo">หน้า 1 จาก 1</span>
+                    <button id="appNextBtn" onclick="changeAppointmentPage('next')">
+                        ถัดไป <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('bloodSugarChart').getContext('2d');
+        let chart;
+        let currentUserId = null;
+        let currentPagination = null;
+        let currentMedicationPagination = null;
+
+        // Show success message with SweetAlert
+        function showSuccess(title, text) {
+            Swal.fire({
+                icon: 'success',
+                title: title,
+                text: text,
+                confirmButtonText: 'ตกลง',
+                timer: 3000,
+                timerProgressBar: true
+            });
+        }
+
+        // Show error message with SweetAlert
+        function showError(title, text) {
+            Swal.fire({
+                icon: 'error',
+                title: title,
+                text: text,
+                confirmButtonText: 'ตกลง'
+            });
+        }
+
+        // Show loading with SweetAlert
+        function showLoading(title = 'กำลังโหลด...') {
+            Swal.fire({
+                title: title,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+        }
+
+        // Switch between tabs
+        function switchTab(tabName) {
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            // Add active class to selected tab
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+
+            // Load data for the selected tab
+            if (tabName === 'medication') {
+                fetchMedicationRecords();
+            } else if (tabName === 'appointment') {
+                fetchAppointmentRecords();
+            } else if (tabName === 'sugar') {
+                fetchSugarRecords();
+            }
+        }
+
+        async function initializeLIFF() {
+            try {
+                let currentUserId = null;
+                await liff.init({ liffId: "2008029649-pVZ4jaV5" });
+
+                if (!liff.isLoggedIn()) {
+                    liff.login({ redirectUri: window.location.href });
+                    return null;
+                }
+
+                const profile = await liff.getProfile();
+                console.log("LINE profile:", profile);
+
+                return profile.userId;
+
+            } catch (error) {
+                console.error('LIFF initialization failed:', error);
+                return null;
+            }
+        }
+
+        async function fetchSugarData(range) {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+
+            try {
+                if (!currentUserId) {
+                    throw new Error('ไม่มี userId');
+                }
+
+                const apiUrl = `https://sugar-track-backend-f26fe59af4ba.herokuapp.com/sugar/${range}?userId=${encodeURIComponent(currentUserId)}&_t=${Date.now()}`;
+                console.log('API URL:', apiUrl);
+
+                const res = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+
+                console.log('Response status:', res.status);
+
+                if (res.status === 304 || res.status === 200) {
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (jsonError) {
+                        console.log('JSON parse failed, likely empty response for 304');
+                        data = {
+                            success: true,
+                            labels: [],
+                            beforeMeal: [],
+                            afterMeal: [],
+                            totalRecords: 0
+                        };
+                    }
+                    console.log('API Response:', data);
+                    return data;
+                } else {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+
+            } catch (error) {
+                console.error('Fetch error:', error);
+                document.getElementById('error').style.display = 'block';
+                showError('เกิดข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลกราฟได้');
+
+                return {
+                    success: false,
+                    labels: [],
+                    beforeMeal: [],
+                    afterMeal: [],
+                    totalRecords: 0
+                };
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        async function createChart(range) {
+            const chartData = await fetchSugarData(range);
+
+            if (!chartData || chartData.success === false) {
+                console.error('No chart data available');
+                return;
+            }
+
+            const { labels, beforeMeal, afterMeal } = chartData;
+
+            const normalBefore = Array(labels.length).fill(100);
+            const normalAfter = Array(labels.length).fill(140);
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'ก่อนอาหาร',
+                            data: beforeMeal,
+                            borderColor: '#FF6B35',
+                            backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                            fill: false,
+                            tension: 0.3,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            pointBackgroundColor: '#FF6B35',
+                            pointBorderColor: 'white',
+                            pointBorderWidth: 2,
+                            borderWidth: 3,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'หลังอาหาร 2 ชม.',
+                            data: afterMeal,
+                            borderColor: '#2E86C1',
+                            backgroundColor: 'rgba(46, 134, 193, 0.1)',
+                            fill: false,
+                            tension: 0.3,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            pointBackgroundColor: '#2E86C1',
+                            pointBorderColor: 'white',
+                            pointBorderWidth: 2,
+                            borderWidth: 3,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'ค่าปกติ ก่อนอาหาร (70-100)',
+                            data: normalBefore,
+                            borderColor: '#28B463',
+                            borderDash: [8, 4],
+                            pointRadius: 0,
+                            fill: false,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'ค่าปกติ หลังอาหาร (<140)',
+                            data: normalAfter,
+                            borderColor: '#E74C3C',
+                            borderDash: [8, 4],
+                            pointRadius: 0,
+                            fill: false,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                font: {
+                                    size: 12,
+                                    weight: '500'
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'ติดตามค่าน้ำตาลในเลือดรายสัปดาห์',
+                            font: {
+                                size: 16,
+                                weight: '600'
+                            },
+                            color: '#0c7e47',
+                            padding: 20
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            suggestedMin: 60,
+                            suggestedMax: 180,
+                            title: {
+                                display: true,
+                                text: 'ค่าน้ำตาล (mg/dL)',
+                                font: {
+                                    size: 12,
+                                    weight: '600'
+                                },
+                                color: '#0c7e47'
+                            },
+                            grid: {
+                                color: 'rgba(159, 199, 128, 0.2)'
+                            },
+                            ticks: {
+                                color: '#0c7e47'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(159, 199, 128, 0.2)'
+                            },
+                            ticks: {
+                                color: '#0c7e47'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+
+        async function updateChart() {
+            const range = 'weekly';
+            await createChart(range);
+        }
+
+        async function fetchSugarRecords(page = 1) {
+            document.getElementById("recordsLoading").style.display = "block";
+            document.getElementById("recordsError").style.display = "none";
+            document.getElementById("recordsTable").style.display = "none";
+            document.getElementById("paginationControls").style.display = "none";
+            document.getElementById("paginationInfo").style.display = "none";
+
+            try {
+                const apiUrl = `https://sugar-track-backend-f26fe59af4ba.herokuapp.com/sugar/records?userId=${encodeURIComponent(currentUserId)}&page=${page}&limit=12&t=${Date.now()}`;
+
+                const res = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+
+                const data = await res.json();
+
+                if (!data.success) throw new Error(data.message);
+
+                currentPagination = data.pagination;
+                const tbody = document.getElementById("recordsTableBody");
+                tbody.innerHTML = "";
+
+                if (!data.records || data.records.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 2rem; color: #666;">
+                        <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+                        ไม่มีข้อมูล
+                    </td></tr>`;
+                } else {
+                    data.records.forEach(r => {
+                        const tr = document.createElement("tr");
+                        tr.innerHTML = `
+                            <td><i class="fas fa-calendar-day" style="color: #9fc780; margin-right: 0.5rem;"></i>${r.date}</td>
+                            <td><i class="fas fa-clock" style="color: #9fc780; margin-right: 0.5rem;"></i>${r.period}</td>
+                            <td><span style="background: rgba(159, 199, 128, 0.2); color: #0c7e47; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.875rem;">${r.type}</span></td>
+                            <td><strong style="color: #0c7e47; font-size: 1.1rem;">${r.sugar}</strong></td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+
+                if (currentPagination) {
+                    document.getElementById("pageInfo").innerHTML =
+                        `หน้า <strong>${currentPagination.currentPage}</strong> จาก <strong>${currentPagination.totalPages}</strong>`;
+
+                    document.getElementById("paginationInfo").innerHTML =
+                        `<i class="fas fa-info-circle" style="margin-right: 0.5rem;"></i>แสดง ${data.records.length} รายการ จากทั้งหมด ${currentPagination.totalRecords} รายการ`;
+
+                    document.getElementById("prevBtn").disabled = !currentPagination.hasPrev;
+                    document.getElementById("nextBtn").disabled = !currentPagination.hasNext;
+
+                    document.getElementById("paginationControls").style.display = "flex";
+                    document.getElementById("paginationInfo").style.display = "inline-block";
+                }
+
+                document.getElementById("recordsTable").style.display = "table";
+
+            } catch (err) {
+                console.error("Records fetch error:", err);
+                document.getElementById("recordsError").style.display = "block";
+                showError('เกิดข้อผิดพลาด', `ไม่สามารถโหลดตารางข้อมูลได้ (${err.message})`);
+            } finally {
+                document.getElementById("recordsLoading").style.display = "none";
+            }
+        }
+
+        async function fetchMedicationRecords(page = 1) {
+            document.getElementById("medicationLoading").style.display = "block";
+            document.getElementById("medicationError").style.display = "none";
+            document.getElementById("medicationTable").style.display = "none";
+            document.getElementById("medicationPaginationControls").style.display = "none";
+            document.getElementById("medicationPaginationInfo").style.display = "none";
+
+            try {
+                const apiUrl = `https://sugar-track-backend-f26fe59af4ba.herokuapp.com/medication/records?userId=${encodeURIComponent(currentUserId)}&page=${page}&limit=12&t=${Date.now()}`;
+
+                const res = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+
+                const data = await res.json();
+
+                if (!data.success) throw new Error(data.message);
+
+                currentMedicationPagination = data.pagination;
+                const tbody = document.getElementById("medicationTableBody");
+                tbody.innerHTML = "";
+
+                if (!data.records || data.records.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 2rem; color: #666;">
+                        <i class="fas fa-pills" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+                        ไม่มีข้อมูลการกินยา
+                    </td></tr>`;
+                } else {
+                    data.records.forEach(r => {
+                        const tr = document.createElement("tr");
+                        const statusClass = r.status === 'กินแล้ว' ? 'status-taken' : 'status-missed';
+                        const statusIcon = r.status === 'กินแล้ว' ? 'fas fa-check-circle' : 'fas fa-times-circle';
+
+                        tr.innerHTML = `
+                            <td><i class="fas fa-calendar-day" style="color: #9fc780; margin-right: 0.5rem;"></i>${r.date}</td>
+                            <td><i class="fas fa-sun" style="color: #9fc780; margin-right: 0.5rem;"></i>${r.timeOfDay}</td>
+                            <td><i class="fas fa-utensils" style="color: #9fc780; margin-right: 0.5rem;"></i>${r.mealRelation}</td>
+                            <td><span class="status-indicator ${statusClass}"><i class="${statusIcon}"></i>${r.status}</span></td>
+                            <td><i class="fas fa-clock" style="color: #9fc780; margin-right: 0.5rem;"></i>${r.logTime}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+
+                if (currentMedicationPagination) {
+                    document.getElementById("medicationPageInfo").innerHTML =
+                        `หน้า <strong>${currentMedicationPagination.currentPage}</strong> จาก <strong>${currentMedicationPagination.totalPages}</strong>`;
+
+                    document.getElementById("medicationPaginationInfo").innerHTML =
+                        `<i class="fas fa-info-circle" style="margin-right: 0.5rem;"></i>แสดง ${data.records.length} รายการ จากทั้งหมด ${currentMedicationPagination.totalRecords} รายการ`;
+
+                    document.getElementById("medPrevBtn").disabled = !currentMedicationPagination.hasPrev;
+                    document.getElementById("medNextBtn").disabled = !currentMedicationPagination.hasNext;
+
+                    document.getElementById("medicationPaginationControls").style.display = "flex";
+                    document.getElementById("medicationPaginationInfo").style.display = "inline-block";
+                }
+
+                document.getElementById("medicationTable").style.display = "table";
+
+            } catch (err) {
+                console.error("Medication records fetch error:", err);
+                document.getElementById("medicationError").style.display = "block";
+                showError('เกิดข้อผิดพลาด', `ไม่สามารถโหลดข้อมูลการกินยาได้ (${err.message})`);
+            } finally {
+                document.getElementById("medicationLoading").style.display = "none";
+            }
+        }
+
+        function changePage(direction) {
+            if (!currentPagination) return;
+
+            let newPage = currentPagination.currentPage;
+            if (direction === 'prev' && currentPagination.hasPrev) {
+                newPage--;
+            } else if (direction === 'next' && currentPagination.hasNext) {
+                newPage++;
+            }
+
+            fetchSugarRecords(newPage);
+        }
+
+        function changeMedicationPage(direction) {
+            if (!currentMedicationPagination) return;
+
+            let newPage = currentMedicationPagination.currentPage;
+            if (direction === 'prev' && currentMedicationPagination.hasPrev) {
+                newPage--;
+            } else if (direction === 'next' && currentMedicationPagination.hasNext) {
+                newPage++;
+            }
+
+            fetchMedicationRecords(newPage);
+        }
+
+        // ตัวแปรสำหรับ pagination ของ appointment
+        let currentAppointmentPagination = null;
+
+        // ฟังก์ชันดึงข้อมูลการนัดหมาย
+        async function fetchAppointmentRecords(page = 1) {
+            document.getElementById("appointmentLoading").style.display = "block";
+            document.getElementById("appointmentError").style.display = "none";
+            document.getElementById("appointmentTable").style.display = "none";
+            document.getElementById("appointmentPaginationControls").style.display = "none";
+            document.getElementById("appointmentPaginationInfo").style.display = "none";
+
+            try {
+                const apiUrl = `https://sugar-track-backend-f26fe59af4ba.herokuapp.com/appointment/records?userId=${encodeURIComponent(currentUserId)}&page=${page}&limit=12&t=${Date.now()}`;
+
+                const res = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+
+                const data = await res.json();
+
+                if (!data.success) throw new Error(data.message);
+
+                currentAppointmentPagination = data.pagination;
+                const tbody = document.getElementById("appointmentTableBody");
+                tbody.innerHTML = "";
+
+                if (!data.appointments || data.appointments.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 2rem; color: #666;">
+                <i class="fas fa-calendar-times" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+                ไม่มีข้อมูลการนัดหมาย
+            </td></tr>`;
+                } else {
+                    data.appointments.forEach(appointment => {
+                        const tr = document.createElement("tr");
+                        tr.innerHTML = `
+                    <td><i class="fas fa-calendar-day" style="color: #9fc780; margin-right: 0.5rem;"></i>${appointment.date}</td>
+                    <td><i class="fas fa-clock" style="color: #9fc780; margin-right: 0.5rem;"></i>${appointment.time}</td>
+                    <td><i class="fas fa-sticky-note" style="color: #9fc780; margin-right: 0.5rem;"></i>${appointment.note || '-'}</td>
+                `;
+                        tbody.appendChild(tr);
+                    });
+                }
+
+                if (currentAppointmentPagination) {
+                    document.getElementById("appointmentPageInfo").innerHTML =
+                        `หน้า <strong>${currentAppointmentPagination.currentPage}</strong> จาก <strong>${currentAppointmentPagination.totalPages}</strong>`;
+
+                    document.getElementById("appointmentPaginationInfo").innerHTML =
+                        `<i class="fas fa-info-circle" style="margin-right: 0.5rem;"></i>แสดง ${data.appointments.length} รายการ จากทั้งหมด ${currentAppointmentPagination.totalRecords} รายการ`;
+
+                    document.getElementById("appPrevBtn").disabled = !currentAppointmentPagination.hasPrev;
+                    document.getElementById("appNextBtn").disabled = !currentAppointmentPagination.hasNext;
+
+                    document.getElementById("appointmentPaginationControls").style.display = "flex";
+                    document.getElementById("appointmentPaginationInfo").style.display = "inline-block";
+                }
+
+                document.getElementById("appointmentTable").style.display = "table";
+
+            } catch (err) {
+                console.error("Appointment records fetch error:", err);
+                document.getElementById("appointmentError").style.display = "block";
+                showError('เกิดข้อผิดพลาด', `ไม่สามารถโหลดข้อมูลการนัดหมายได้ (${err.message})`);
+            } finally {
+                document.getElementById("appointmentLoading").style.display = "none";
+            }
+        }
+
+        // ฟังก์ชันเปลี่ยนหน้า appointment pagination
+        function changeAppointmentPage(direction) {
+            if (!currentAppointmentPagination) return;
+
+            let newPage = currentAppointmentPagination.currentPage;
+            if (direction === 'prev' && currentAppointmentPagination.hasPrev) {
+                newPage--;
+            } else if (direction === 'next' && currentAppointmentPagination.hasNext) {
+                newPage++;
+            }
+
+            fetchAppointmentRecords(newPage);
+        }
+
+        // เริ่มต้นการทำงาน
+        async function init() {
+            try {
+                currentUserId = await initializeLIFF();
+                if (!currentUserId) return;
+                const res = await fetch(`https://sugar-track-backend-f26fe59af4ba.herokuapp.com/check-user?userId=${encodeURIComponent(currentUserId)}`);
+                const data = await res.json();
+
+                if (!data.registered) {
+                    // ยังไม่เคยลงทะเบียน → ไป index.html
+                    window.location.href = "/index.html";
+                    return;
+                }
+
+                await updateChart();
+                await fetchSugarRecords();
+                Swal.close();
+            } catch (error) {
+                console.error('Initialization error:', error);
+                Swal.close();
+                showError('เกิดข้อผิดพลาด', 'ไม่สามารถเริ่มต้นระบบได้ กำลังลองใหม่...');
+                // แม้เกิดข้อผิดพลาดก็ยังแสดงกราฟจำลองได้
+                await updateChart();
+            }
+        }
+
+        // เริ่มต้นเมื่อหน้าโหลดเสร็จ
+        window.addEventListener('load', init);
+    </script>
+</body>
+
+</html>
